@@ -58,14 +58,20 @@ def parse_decision(raw_response: str) -> Decision:
 
     # 4. 确定 final 标志
     final = data.get("final", False)
-    if not isinstance(final, bool):
-        raise DecisionParseError("Field 'final' must be a boolean")
+    # 容错：final 可能是字符串（如 LLM 直接返回了答案文本）
+    if isinstance(final, str):
+        final_message = final
+        final = True
+    elif isinstance(final, bool):
+        final_message = thought
+    else:
+        raise DecisionParseError("Field 'final' must be a boolean or string")
 
     if final:
         # 5. final=true 时不允许有 action
         if "action" in data and data["action"]:
             raise DecisionParseError("Cannot have 'action' when 'final' is true")
-        return Decision(thought=thought, final=True, action=None)
+        return Decision(thought=final_message, final=True, action=None)
 
     # 6. 非 final 时，必须提供 action
     action_name = data.get("action")

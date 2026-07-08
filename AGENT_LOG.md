@@ -271,3 +271,90 @@ minicc key set deepseek_api_key    # 存 API Key（隐藏输入）
 minicc config init                 # 生成 config.yaml
 minicc task "创建 hello.py"        # 有 key 走真实 LLM，无 key 回退 MockLLM
 ```
+
+---
+
+## 2026-07-09 — T23: 真实 LLM 集成修复（第 2 轮）— 打通 Web + CLI 端到端
+
+- **时间**：2026-07-09 05:45–06:00
+- **阶段**：T23 fix（真实 LLM 集成第 2 轮调试）
+- **主开发智能体**：Claude Code + deepseek-v4-pro
+- **触发**：用户反馈"前后端一起泡一下" + "本地希望接真实 LLM" + "minicc task 没有成功创建"
+
+### 调试过程
+
+**第 1 轮：Web 端仍用 MockLLM**
+
+- 现象：`http://localhost:8000` 返回 "Task received: …"
+- 原因：`server.py` 的 `/chat` 端点硬编码 `MockLLM`
+- 解决：改为与 CLI 相同的逻辑——load config → 读 key → OpenAICompatibleLLM → 无 key 回退 MockLLM
+
+**第 2 轮：config.yaml 和 key 都有，但仍走 MockLLM**
+
+- 现象：端点返回仍是 MockLLM 的 "Task received: …"
+- 调试：直接跑 Python 脚本验证 config 加载、key 读取、LLM 创建都 OK
+- 根因：`AgentLoop.run()` 中 `_build_tools()` 返回的 tools 格式不符合 OpenAI function-calling 规范——T21 的"跳过发送"方案绕过了问题而非修复
+- 解决：重写 `_build_tools()` 为 `{"type": "function", "function": {"name": ..., "description": ..., "parameters": {...}}}` 标准格式
+
+**第 3 轮：LLM 返回 tool_calls 但代码不读**
+
+- 现象：`RuntimeError: LLM returned empty content`
+- 原因：DeepSeek 用原生 function calling 返回 `tool_calls` 数组，`openai_compatible.py` 只读 `content` 字段（此时为 null）
+- 解决：`openai_compatible.py` 检查 `tool_calls`，存在时自动转换为 ReAct JSON 格式（`{"thought": ..., "action": "...", "action_input": {...}, "final": false}`）
+
+**第 4 轮：parse_decision 拒绝 "final" 为字符串**
+
+- 现象：LLM 返回 `{"thought": "…", "final": "Hello! …"}` 解析失败，`max_iters` 耗尽
+- 原因：`parse_decision` 要求 `final` 必须是 boolean，但 LLM 经常直接返回答案文本
+- 解决：容错处理——`final` 为字符串时视为 `final=True`，字符串内容作为 `thought`
+
+**第 5 轮：工具结果不喂回 LLM**
+
+- 现象：循环运行但 LLM 不知道工具执行结果，`max_iters` 耗尽
+- 根因：`_organize_context` 每轮从 system prompt 重建 messages，历史对话丢失
+- 解决：重构主循环——改为累积式 `messages` 列表，dispatch 后追加 `{"role": "user", "content": "Tool 'xxx' result: ..."}` 到对话历史。同时改进 system prompt 给出明确 JSON 格式示例
+
+**第 6 轮：护栏误判 `/hello.py` 越界**
+
+- 现象：`Status: blocked` — "write path outside project root: /hello.py"
+- 原因：LLM 输出 Unix 风格路径 `/hello.py`，`_is_path_inside` 将其解析为 `E:\hello.py`（不在项目内）
+- 解决：`guardrail._is_path_inside` + `dispatcher.dispatch` 都自动 strip 前导 `/` 和 `\`
+
+**第 7 轮：Web 仍用 MockLLM（重启后才生效）**
+
+- 现象：curl 测试通过但浏览器仍返回 MockLLM 结果
+- 原因：uvicorn StatReload 只检测到第一次 `server.py` 改动，后续 `openai_compatible.py`、`main_loop.py`、`decision.py` 等的改动未触发重载
+- 解决：手动重启 uvicorn
+
+### 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `smile_harness/llm/openai_compatible.py` | tool_calls → ReAct JSON 转换 |
+| `smile_harness/loop/main_loop.py` | 累积式 messages + 工具结果回灌 + system prompt 优化 |
+| `smile_harness/loop/decision.py` | final 字段容错（boolean / string） |
+| `smile_harness/guardrails/guardrail.py` | `_is_path_inside` strip 前导斜杠 |
+| `smile_harness/tools/dispatcher.py` | dispatch 时 strip 路径前导斜杠 |
+| `smile_harness/web/server.py` | /chat 端点集成真实 LLM（load config → key → OpenAICompatibleLLM） |
+| `tests/test_web.py` | mock `CredentialManager.get` 避免走真实 API |
+
+### 测试
+
+- 183/183 全绿
+- CLI: `minicc task "create hello.py"` → `Status: success`，文件正确创建
+- Web: `curl /chat '{"task": "1+1=?"}'` → `"1+1 equals 2"`（真实 DeepSeek 响应）
+
+### 教训
+
+1. **T21 的"跳过发送"方案是技术债**：当时 `_build_tools()` 格式不对，选择在 `openai_compatible.py` 中跳过发送而非修复格式——这导致 function calling 被禁用，LLM 只能用纯文本生成 JSON，容易出错。这次彻底修复了 tools 格式
+2. **对话历史是 agent 的记忆**：每轮重建 messages 让 agent 变成金鱼——MockLLM 的预写脚本掩盖了这个问题，因为脚本"知道"每步做什么。真实 LLM 必须依赖累积的对话历史
+3. **LLM 原生输出格式不可控**：`tool_calls` vs `content`、`final` 为 boolean vs string、路径 `/hello.py` vs `hello.py`——每一层都需要容错转换。不能让 LLM 的输出直接对接内部逻辑
+4. **uvicorn --reload 不可靠**：多文件改动时可能漏掉一些文件，重启是最稳妥的
+
+### 用户交互摘要
+
+- 用户要求前后端一起跑 → 启动 uvicorn（HTML 内嵌在 server.py 中，无需分离启动）
+- 用户要求本地接真实 LLM → 修改 server.py 的 `/chat` 端点
+- 用户已存 key，要求验证 → curl 测试发现仍用 MockLLM → 深入调试
+- 用户反馈 `minicc task` 没创建文件 → 发现 400 Bad Request → 修复 tools 格式
+- 用户反馈 Web 仍用 MockLLM → 发现 uvicorn 未重载后续改动 → 重启解决

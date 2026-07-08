@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from smile_harness.llm.base import LLM
@@ -37,14 +39,17 @@ class OpenAICompatibleLLM(LLM):
         self._temperature = temperature
 
     def complete(self, messages: list[dict], tools: list[dict]) -> str:
-        """调用 chat completion API，返回原始响应文本。
+        """调用 chat completion API，返回 ReAct JSON 响应文本。
+
+        将 OpenAI 原生 tool_calls 转换为 ReAct JSON 格式，
+        确保与 parse_decision 兼容。
 
         Args:
             messages: chat 消息列表（role/content）。
             tools: 可用工具描述列表。
 
         Returns:
-            LLM 返回的原始文本（ReAct JSON 串）。
+            ReAct JSON 字符串。
 
         Raises:
             RuntimeError: HTTP 错误、API 返回错误、或响应为空。
@@ -76,7 +81,29 @@ class OpenAICompatibleLLM(LLM):
         if not choices:
             raise RuntimeError("LLM returned empty response")
 
-        content = choices[0].get("message", {}).get("content", "")
+        msg = choices[0].get("message", {})
+        content = msg.get("content", "")
+        tool_calls = msg.get("tool_calls", [])
+
+        # 如果 LLM 调用了工具，转换为 ReAct JSON 格式
+        if tool_calls:
+            tc = tool_calls[0]
+            func = tc.get("function", {})
+            action_name = func.get("name", "")
+            try:
+                action_input = json.loads(func.get("arguments", "{}"))
+            except json.JSONDecodeError:
+                action_input = {}
+
+            # 生成 ReAct JSON
+            react = {
+                "thought": content or f"Calling {action_name}",
+                "action": action_name,
+                "action_input": action_input,
+                "final": False,
+            }
+            return json.dumps(react)
+
         if not content:
             raise RuntimeError("LLM returned empty content")
 
