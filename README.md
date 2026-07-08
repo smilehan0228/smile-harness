@@ -150,8 +150,26 @@ pip install -e .
 
 ### 运行测试
 
+全部 172 个测试，含核心机制确定性单测（MockLLM，无需网络）：
+
 ```bash
 pytest -q
+```
+
+### 机制演示
+
+对应 SPEC A.6 三项机制演示，全程 MockLLM，确定性复现：
+
+| 演示 | 内容 | 测试入口 |
+|------|------|----------|
+| ① 护栏拦截 | `rm -rf /` → guardrail 判 fatal → blocked | `pytest tests/test_main_loop.py -k "blocks"` |
+| ② 反馈闭环 | 语法错误反馈注入下一轮 → 行为改变 | `pytest tests/test_main_loop.py -k "feedback"` |
+| ③ 修复到全绿 | write→pytest 失败→edit 修复→PASS | `pytest tests/test_main_loop.py -k "green"` |
+
+也可一键运行独立演示脚本：
+
+```bash
+python demo/demo_mechanisms.py
 ```
 
 ### 启动 Web 服务
@@ -161,12 +179,6 @@ python -m uvicorn smile_harness.web.server:app --reload
 ```
 
 然后打开 http://localhost:8000 查看聊天页面。
-
-### 运行机制演示
-
-```bash
-python demo/demo_mechanisms.py
-```
 
 ## 许可证
 
