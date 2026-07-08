@@ -54,18 +54,29 @@ class OpenAICompatibleLLM(LLM):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        body = {
+        body: dict = {
             "model": self._model,
             "messages": messages,
-            "tools": tools,
             "temperature": self._temperature,
         }
+        # 只在 tools 非空时发送，且跳过不符合 OpenAI function-calling 格式的 tools
+        # （ReAct 协议不依赖 function calling，tools 仅作提示参考）
+        if tools:
+            # 检查 tools 是否已是 OpenAI function-calling 格式
+            if all("type" in t for t in tools):
+                body["tools"] = tools
 
         try:
             resp = httpx.post(url, json=body, headers=headers, timeout=60.0)
             resp.raise_for_status()
         except httpx.HTTPError as e:
-            raise RuntimeError(f"LLM API call failed: {e}") from e
+            # 附带响应体帮助调试
+            detail = ""
+            try:
+                detail = resp.text
+            except Exception:
+                pass
+            raise RuntimeError(f"LLM API call failed: {e}" + (f"\n{detail}" if detail else "")) from e
 
         data = resp.json()
 

@@ -91,7 +91,7 @@ def test_complete_returns_content():
 
 
 def test_complete_sends_correct_request():
-    """complete() 发出的 HTTP 请求包含正确的 model/messages/tools/temperature。"""
+    """complete() 发出的 HTTP 请求包含正确的 model/messages/temperature。"""
     llm = OpenAICompatibleLLM(
         api_key="sk-test",
         base_url="https://api.deepseek.com/v1",
@@ -99,20 +99,45 @@ def test_complete_sends_correct_request():
         temperature=0.7,
     )
     messages = [{"role": "user", "content": "fix the bug"}]
-    tools = [{"name": "read_file"}]
 
     with mock.patch("httpx.post") as mock_post:
         mock_post.return_value = _mock_response('{"final": true}')
-        llm.complete(messages, tools)
+        llm.complete(messages, [])
 
         # 验证请求参数
         call_kwargs = mock_post.call_args.kwargs
         assert call_kwargs["json"]["model"] == "deepseek-chat"
         assert call_kwargs["json"]["messages"] == messages
-        assert call_kwargs["json"]["tools"] == tools
         assert call_kwargs["json"]["temperature"] == 0.7
         assert call_kwargs["headers"]["Authorization"] == "Bearer sk-test"
         assert call_kwargs["headers"]["Content-Type"] == "application/json"
+
+
+def test_complete_sends_openai_format_tools():
+    """tools 符合 OpenAI function-calling 格式时会被发送。"""
+    llm = OpenAICompatibleLLM("sk-test", "https://api.deepseek.com/v1", "deepseek-chat")
+    tools = [{"type": "function", "function": {"name": "read_file"}}]
+
+    with mock.patch("httpx.post") as mock_post:
+        mock_post.return_value = _mock_response('{"final": true}')
+        llm.complete([{"role": "user", "content": "hi"}], tools)
+
+        call_kwargs = mock_post.call_args.kwargs
+        assert "tools" in call_kwargs["json"]
+        assert call_kwargs["json"]["tools"] == tools
+
+
+def test_complete_skips_non_openai_format_tools():
+    """tools 不符合 OpenAI function-calling 格式时被跳过（ReAct 协议不依赖它）。"""
+    llm = OpenAICompatibleLLM("sk-test", "https://api.deepseek.com/v1", "deepseek-chat")
+    simple_tools = [{"name": "read_file", "description": "Read a file"}]
+
+    with mock.patch("httpx.post") as mock_post:
+        mock_post.return_value = _mock_response('{"final": true}')
+        llm.complete([{"role": "user", "content": "hi"}], simple_tools)
+
+        call_kwargs = mock_post.call_args.kwargs
+        assert "tools" not in call_kwargs["json"]
 
 
 def test_complete_url_constructed_correctly():
