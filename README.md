@@ -153,15 +153,56 @@ smile_harness/
 ## 已知限制
 
 - **Python 3.11+** 必须
-- **仅 Mock LLM** — 当前使用 MockLLM 脚本化响应。真实 LLM 接入需用户提供 API Key 及供应商适配器。
+- **真实 LLM 需自备 API Key** — 默认 DeepSeek（OpenAI 兼容协议），也支持其他兼容供应商。配置方式见下方"配置真实 LLM"。
 - **无持久化状态** — 会话存于内存，无数据库或检查点。
 - **单用户** — 不支持多租户或并发会话。
+
+## 配置真实 LLM
+
+smile-harness 默认使用 DeepSeek API，也支持任意 OpenAI 兼容供应商。
+
+### 1. 获取 API Key
+
+在 [DeepSeek 平台](https://platform.deepseek.com/) 注册并获取 API Key。
+
+### 2. 存储 API Key
+
+```bash
+minicc key set deepseek_api_key
+# 提示输入，粘贴 key 后回车（隐藏输入，不回显）
+```
+
+### 3. 生成配置文件
+
+```bash
+minicc config init
+```
+
+生成的 `config.yaml` 默认使用 DeepSeek：
+
+```yaml
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  endpoint: https://api.deepseek.com/v1
+  temperature: 0.0
+```
+
+如需使用其他供应商（如 OpenAI、Kimi 等），修改 `provider`、`endpoint` 和 `model` 字段即可，然后 `minicc key set {provider}_api_key` 配置对应 key。
+
+### 4. 运行任务
+
+```bash
+minicc task "在项目根目录创建一个 hello.py"
+```
+
+有 API key 时自动使用真实 LLM；无 key 时回退到 MockLLM 并提示警告。
 
 ## 测试
 
 ### 运行全部测试
 
-可一键运行所有共 172 个测试，含核心机制确定性单测（MockLLM，无需网络）：
+可一键运行所有共 183 个测试，含核心机制确定性单测（MockLLM，无需网络）：
 
 ```bash
 pytest -q
