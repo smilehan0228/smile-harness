@@ -47,3 +47,22 @@
   2. subagent 的判断力可信任（识别不可满足门禁 + 拒绝有害 hack），但需主 agent 复核其"拒绝"是否漏掉了正确替代方案（smoke test）。
   3. Windows 本地无 `make`，CI Linux 有；本地用 `pytest -q` 验，README 须说明。
 - **下一步**：T1（LLM 抽象层 + mock），依赖 T0，串行。
+
+---
+
+## 2026-07-08 — T1 LLM 抽象层 + MockLLM（subagent-driven, 首个 gh PR）
+
+- **时间**：2026-07-08
+- **task**：T1（Band A）
+- **技能**：`using-git-worktrees` + `subagent-driven-development` + `test-driven-development`
+- **subagent**：general-purpose，isolation=worktree，分支 `worktree-agent-ae22bf456ca070435`
+- **产出**：`smile_harness/llm/base.py`（`Action`/`Decision` dataclass + `LLM` ABC）、`smile_harness/llm/mock.py`（`MockLLM`）、`tests/test_mock_llm.py`（3 tests）
+- **TDD**：红（`cannot import name 'LLM'`）→ 绿（4 passed）
+- **subagent 关键输出**：commit `30ba081`；主动发现并报告 stale editable install（冷启动 `pip install -e .` 残留，影子化包解析），未擅自改全局环境，仅透明记录。无功能偏差。
+- **人工干预**：两阶段评审通过（base/mock/test 干净，docstring 引用 SPEC §6，spec 合规+代码质量双✅）；卸载 stale editable install（`pip uninstall smile-harness`）消除后续 worktree 解析隐患。
+- **PR 工作流**：gh CLI 已装+授权（smilehan0228）；`gh pr create` → PR #1 → `gh pr merge --squash --delete-branch` → main `bf9eef3`。首个 gh 端到端跑通。
+- **commit hash**：`bf9eef3`（main，squash）
+- **教训**：
+  1. 冷启动/探针环境的 `pip install -e .` 会留下 stale editable install 影子化正式仓库——须在切换到正式开发前卸载。
+  2. gh `--delete-branch` 会尝试删本地分支，若 worktree 仍持有该分支会报错；须先 `git worktree remove` 再 `git branch -D`（顺序很重要）。
+- **下一步**：Band B 并行（T2/T3/T5/T8/T9/T10，6 个 subagent 并发 worktree）；T6 待 T5 完成后启动。

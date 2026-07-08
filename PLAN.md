@@ -29,6 +29,7 @@
 - **实现要点**：`LLM.complete(messages, tools) → response`；`Decision`/`Action` 类型；`MockLLM` 按脚本队列返回 ReAct 帧。
 - **验证步骤（失败测试先行）**：`tests/test_mock_llm.py::test_mock_llm_returns_scripted_response` —— 依次返回脚本帧、耗尽抛错。
 - **依赖**：T0。
+- ✅ **完成**：commit `bf9eef3`（PR #1 squash 合并 main，已推）。subagent=T1，两阶段评审通过（spec 合规+代码质量，无 Critical）。`LLM.complete(messages, tools)→str`（原始 ReAct JSON 串，不解析，解析留 T11）；`MockLLM` 耗尽抛 `StopIteration`，`script` 防御性拷贝。环境清理：卸载冷启动残留的 stale editable install。
 
 ---
 
