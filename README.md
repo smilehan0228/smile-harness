@@ -38,6 +38,14 @@ docker build -t smile-harness .
 docker run smile-harness minicc --help
 ```
 
+## Web 服务
+
+```bash
+python -m uvicorn smile_harness.web.server:app --reload
+```
+
+然后打开 http://localhost:8000 查看聊天页面。
+
 ## 快速开始
 
 ### 运行 coding 任务
@@ -140,15 +148,9 @@ smile_harness/
 - **无持久化状态** — 会话存于内存，无数据库或检查点。
 - **单用户** — 不支持多租户或并发会话。
 
-## 开发
+## 测试
 
-### 环境准备
-
-```bash
-pip install -e .
-```
-
-### 运行测试
+### 运行全部测试
 
 全部 172 个测试，含核心机制确定性单测（MockLLM，无需网络）：
 
@@ -171,14 +173,6 @@ pytest -q
 ```bash
 python demo/demo_mechanisms.py
 ```
-
-### 启动 Web 服务
-
-```bash
-python -m uvicorn smile_harness.web.server:app --reload
-```
-
-然后打开 http://localhost:8000 查看聊天页面。
 
 ## 许可证
 
