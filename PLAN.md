@@ -17,10 +17,11 @@
 
 ### T0 仓库骨架
 - **目标**：可一键跑测试的空骨架 + CI 含 `unit-test` job。
-- **涉及文件**：`pyproject.toml`、`Makefile`、`.gitlab-ci.yml`、`smile_harness/__init__.py`、`tests/__init__.py`、`.gitignore`、`README.md`(占位)。
+- **涉及文件**：`pyproject.toml`、`Makefile`、`.gitlab-ci.yml`、`smile_harness/__init__.py`、`tests/__init__.py`、`tests/test_smoke.py`、`.gitignore`。（README 占位推迟到 T16）
 - **实现要点**：pyproject 声明 Python≥3.11、deps（pytest, pyyaml, keyring, httpx, fastapi, uvicorn）；`make test` = `pytest -q`；CI `unit-test` job 跑 `make test`。
-- **验证步骤**：`make test` 退出 0（0 用例）；CI yaml 语法合法。
+- **验证步骤**：`pytest -q` 退出 0（含 smoke test）。注：pytest 9 空 suite 返回 exit 5，故 T0 即加 `tests/test_smoke.py`（导入包断言版本）使 CI 从起即绿，且不掩盖回归。Windows 本地无 `make`，用 `pytest -q` 验；CI Linux 镜像有 make 跑同 recipe。
 - **依赖**：无。
+- ✅ **完成**：commit `4092176`（main，已推）。subagent=T0，经两阶段评审 + review-fix（补 smoke test）。
 
 ### T1 LLM 抽象层 + mock
 - **目标**：可注入 mock 的 LLM 抽象，支撑后续所有机制的离线单测。

@@ -27,3 +27,23 @@
   2. 主 agent 自审发现不了"未明文写死的契约缺口"，因带隐性上下文会自动脑补；冷启动的零上下文才暴露这些。
   3. 网络受限（GitHub 不可达）使 Open Design 具体套件名未能锁定，留为 §10 未决。
 - **下一步**：冷启动通过，进入 Band A（T0→T1）真实实现。每 task 一个 worktree→一个 PR，TDD 先红再绿再重构，PLAN.md 标 commit hash。
+
+---
+
+## 2026-07-08 — T0 仓库骨架（subagent-driven）
+
+- **时间**：2026-07-08
+- **task**：T0（Band A）
+- **技能**：`using-git-worktrees` + `subagent-driven-development` + `test-driven-development`
+- **subagent**：general-purpose，isolation=worktree，分支 `worktree-agent-afac76b25924fbf66`
+- **产出**：`pyproject.toml`、`Makefile`、`.gitlab-ci.yml`（`unit-test` job）、`smile_harness/__init__.py`、`tests/__init__.py`、`tests/test_smoke.py`
+- **关键 prompt 配置**：给 subagent T0 规格 + TDD 纪律 + "不写机制逻辑" + 报告格式
+- **subagent 关键输出**：主动发现 pytest 9 空 suite→exit 5 与 T0 门禁冲突；**正确拒绝** conftest exit-5→0 hook（会掩盖真回归）；透明记录后提交。commit `40bc0fd`
+- **人工干预（review-fix）**：两阶段评审通过；判定 subagent 把"加 conftest hook（坏）"与"加真实 smoke 测试（好）"混淆。发回 fix：加 `tests/test_smoke.py`（导入包断言版本）→ exit 0、CI 从起即绿、不掩盖回归。subagent amend → commit `4092176`
+- **合并**：fast-forward merge 到 main，推送 origin，清理 worktree
+- **commit hash**：`4092176`（main）
+- **教训**：
+  1. SPEC/PLAN 的"验证步骤"须考虑工具实际行为（pytest 空 suite exit 5），不能想当然写"退出 0（0 用例）"——已据实修订 PLAN T0。
+  2. subagent 的判断力可信任（识别不可满足门禁 + 拒绝有害 hack），但需主 agent 复核其"拒绝"是否漏掉了正确替代方案（smoke test）。
+  3. Windows 本地无 `make`，CI Linux 有；本地用 `pytest -q` 验，README 须说明。
+- **下一步**：T1（LLM 抽象层 + mock），依赖 T0，串行。
