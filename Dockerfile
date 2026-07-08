@@ -13,5 +13,6 @@ COPY README.md .
 # 暴露端口（Web 前端）
 EXPOSE 8000
 
-# 默认命令
+# 默认命令（CLI 模式）
+# Web 部署时通过 docker-compose command 覆盖为 uvicorn
 CMD ["minicc", "--help"]
