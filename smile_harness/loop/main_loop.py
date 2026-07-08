@@ -96,15 +96,14 @@ class AgentLoop:
         )
         feedback_history: list[FeedbackResult] = []
 
-        for iteration in range(1, self._config.max_iters + 1):
-            # 1. organize_context(task, memory, feedback_history)
-            messages = self._organize_context(task, feedback_history)
+        # 构建对话历史（system prompt + 记忆）
+        messages = self._build_initial_messages(task)
 
-            # 2. call_llm → raw_response
+        for iteration in range(1, self._config.max_iters + 1):
+            # 1. call_llm → raw_response
             try:
                 raw_response = self._llm.complete(messages, self._build_tools())
             except StopIteration:
-                # LLM 脚本耗尽：检查反馈状态后退出
                 should_stop, reason = feedback_loop.should_stop()
                 if should_stop:
                     return {
@@ -114,6 +113,9 @@ class AgentLoop:
                         "final_message": f"Stopped: {reason}",
                     }
                 break
+
+            # 2. 将 LLM 响应追加到对话历史
+            messages.append({"role": "assistant", "content": raw_response})
 
             # 3. parse_decision(raw_response) → Decision
             try:
@@ -127,6 +129,7 @@ class AgentLoop:
                 )
                 feedback_loop.record(fb)
                 feedback_history.append(fb)
+                messages.append({"role": "user", "content": f"Parse error: {e}. Please fix your JSON format."})
                 if feedback_loop.should_stop()[0]:
                     break
                 continue
@@ -181,7 +184,6 @@ class AgentLoop:
                 if _auto_approve_hitl:
                     self._hitl_manager.approve(req.request_id)
                 else:
-                    # 非自动批准模式：检查是否仍为 PENDING
                     if self._hitl_manager.is_pending(req.request_id):
                         fb = FeedbackResult(
                             category=Taxonomy.UNKNOWN,
@@ -200,7 +202,13 @@ class AgentLoop:
             # 8. dispatch(action) → ToolResult
             tool_result = self._dispatcher.dispatch(decision.action)
 
-            # 9. if not ToolResult.ok: record failure & continue
+            # 9. 将工具结果喂回对话历史（关键：让 LLM 知道工具执行结果）
+            tool_feedback = f"Tool '{decision.action.name}' result: {tool_result.content or '(empty)'}"
+            if not tool_result.ok:
+                tool_feedback = f"Tool '{decision.action.name}' ERROR: {tool_result.error}"
+            messages.append({"role": "user", "content": tool_feedback})
+
+            # 10. if not ToolResult.ok: record failure & continue
             if not tool_result.ok:
                 fb = FeedbackResult(
                     category=Taxonomy.UNKNOWN,
@@ -220,7 +228,7 @@ class AgentLoop:
                     }
                 continue
 
-            # 10. validate (if validator configured) → FeedbackResult
+            # 11. validate (if validator configured) → FeedbackResult
             if validate is not None:
                 validator_name, target = validate
                 try:
@@ -240,11 +248,9 @@ class AgentLoop:
                         raw=str(e),
                     )
 
-                # 11. feedback_loop.record(result)
                 feedback_loop.record(fb)
                 feedback_history.append(fb)
 
-                # 12. if feedback_loop.should_stop(): break
                 should_stop, reason = feedback_loop.should_stop()
                 if should_stop:
                     status = "success" if reason == "pass" else "stopped"
@@ -264,23 +270,19 @@ class AgentLoop:
 
     # ── private helpers ──────────────────────────────────────────────
 
-    def _organize_context(
-        self,
-        task: str,
-        feedback_history: list[FeedbackResult],
-    ) -> list[dict]:
-        """构建发给 LLM 的 messages 列表。
-
-        包含 system prompt、记忆上下文、以及历史反馈。
-        """
+    def _build_initial_messages(self, task: str) -> list[dict]:
+        """构建初始 messages 列表（system prompt + 记忆）。"""
         messages: list[dict] = [
             {
                 "role": "system",
                 "content": (
                     f"You are a coding agent. Complete the following task:\n\n"
                     f"{task}\n\n"
-                    f"Respond in ReAct JSON format with 'thought', 'action', "
-                    f"'action_input', and 'final' fields."
+                    f"Respond in strict JSON format. If you need to use a tool, respond with:\n"
+                    f'{{"thought": "...", "action": "<tool_name>", "action_input": {{...}}, "final": false}}\n\n'
+                    f"When the task is complete, respond with:\n"
+                    f'{{"thought": "your final answer message", "final": true}}\n\n'
+                    f"IMPORTANT: 'final' must be a boolean (true/false), never a string."
                 ),
             },
         ]
@@ -297,41 +299,83 @@ class AgentLoop:
             except Exception:
                 pass  # 记忆检索失败不应阻塞主循环
 
-        # 注入历史反馈
-        for fb in feedback_history:
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"Previous action feedback: [{fb.category.value}] {fb.message}\n"
-                    f"Fix hint: {fb.fix_hint}\n"
-                    f"Raw output: {fb.raw}"
-                ),
-            })
-
         return messages
 
     def _build_tools(self) -> list[dict]:
-        """构建可用工具描述列表。"""
+        """构建可用工具描述列表（OpenAI function-calling 格式）。"""
         return [
             {
-                "name": "read_file",
-                "description": "Read a file from the project. Args: path (str).",
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read a file from the project.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "File path to read"}
+                        },
+                        "required": ["path"],
+                    },
+                },
             },
             {
-                "name": "write_file",
-                "description": "Write content to a file. Args: path (str), content (str).",
+                "type": "function",
+                "function": {
+                    "name": "write_file",
+                    "description": "Write content to a file.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "File path to write"},
+                            "content": {"type": "string", "description": "Content to write"},
+                        },
+                        "required": ["path", "content"],
+                    },
+                },
             },
             {
-                "name": "edit_file",
-                "description": "Edit a file by replacing old_str with new_str. "
-                "Args: path (str), old_str (str), new_str (str).",
+                "type": "function",
+                "function": {
+                    "name": "edit_file",
+                    "description": "Edit a file by replacing old_str with new_str.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "File path to edit"},
+                            "old_str": {"type": "string", "description": "Text to replace"},
+                            "new_str": {"type": "string", "description": "Replacement text"},
+                        },
+                        "required": ["path", "old_str", "new_str"],
+                    },
+                },
             },
             {
-                "name": "list_dir",
-                "description": "List directory contents. Args: path (str).",
+                "type": "function",
+                "function": {
+                    "name": "list_dir",
+                    "description": "List directory contents.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "Directory path to list"}
+                        },
+                        "required": ["path"],
+                    },
+                },
             },
             {
-                "name": "run_shell",
-                "description": "Run a shell command. Args: command (str), cwd (str, optional).",
+                "type": "function",
+                "function": {
+                    "name": "run_shell",
+                    "description": "Run a shell command.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "command": {"type": "string", "description": "Shell command to run"},
+                            "cwd": {"type": "string", "description": "Working directory (optional)"},
+                        },
+                        "required": ["command"],
+                    },
+                },
             },
         ]

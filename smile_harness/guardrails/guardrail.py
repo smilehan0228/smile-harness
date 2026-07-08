@@ -86,7 +86,16 @@ def _resolve_path(path: str) -> str:
 
 
 def _is_path_inside(path: str, root: str) -> bool:
-    """检查 *path* 是否在 *root* 目录内（含完全相等）。"""
+    """检查 *path* 是否在 *root* 目录内（含完全相等）。
+
+    自动处理 LLM 常见的 Unix 风格绝对路径（以 ``/`` 开头），
+    将其视为相对于项目根目录的路径。
+    """
+    # 规范化：移除前导斜杠（LLM 常输出 /hello.py 而非 hello.py）
+    normalized = path.lstrip("/").lstrip("\\")
+    if normalized != path:
+        path = normalized
+
     resolved_path = _resolve_path(path)
     resolved_root = _resolve_path(root)
     # 确保 root 以分隔符结尾，防止 /root_foo 被误判为 /root 的子目录

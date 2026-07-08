@@ -26,6 +26,8 @@ class Dispatcher:
     def dispatch(self, action: Action) -> ToolResult:
         """根据 action.name 路由到对应工具并执行。
 
+        自动规范化路径参数（移除前导斜杠，LLM 常输出 /hello.py）。
+
         Args:
             action: 包含 name 和 args 的 Action 对象。
 
@@ -37,8 +39,12 @@ class Dispatcher:
             return ToolResult(
                 ok=False, error=f"Unknown action: {action.name}"
             )
+        # 规范化路径参数：移除前导斜杠（LLM 常输出 Unix 风格路径）
+        args = dict(action.args)
+        if "path" in args and isinstance(args["path"], str):
+            args["path"] = args["path"].lstrip("/").lstrip("\\") or "."
         try:
-            return fn(**action.args)
+            return fn(**args)
         except TypeError as e:
             return ToolResult(ok=False, error=f"Action argument error: {e}")
         except Exception as e:

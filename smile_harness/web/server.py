@@ -865,14 +865,38 @@ async def chat(request: Request):
     from smile_harness.loop.main_loop import AgentLoop, LoopConfig
     from smile_harness.llm.mock import MockLLM
     from smile_harness.tools.dispatcher import Dispatcher
+    from smile_harness.config import load_config
+    from smile_harness.creds.manager import CredentialManager
     import json
+    import os
 
     body = await request.json()
     task = body.get("task", "")
 
-    # 用 MockLLM 做简单演示（写一个 final 响应）
-    script = [json.dumps({"thought": f"Task received: {task}", "final": True})]
-    llm = MockLLM(script)
+    # 尝试加载配置并创建真实 LLM
+    config_path = "config.yaml"
+    llm = None
+    if os.path.exists(config_path):
+        try:
+            config = load_config(config_path)
+            creds = CredentialManager()
+            api_key = creds.get(f"{config.llm.provider}_api_key")
+            if api_key:
+                from smile_harness.llm.openai_compatible import OpenAICompatibleLLM
+                llm = OpenAICompatibleLLM(
+                    api_key=api_key,
+                    base_url=config.llm.endpoint,
+                    model=config.llm.model,
+                    temperature=config.llm.temperature,
+                )
+        except Exception:
+            pass  # 回退到 MockLLM
+
+    # 回退到 MockLLM（无 API key 或创建失败）
+    if llm is None:
+        script = [json.dumps({"thought": f"Task received: {task}", "final": True})]
+        llm = MockLLM(script)
+
     dispatcher = Dispatcher(".")
     loop = AgentLoop(llm=llm, dispatcher=dispatcher, config=LoopConfig())
 
