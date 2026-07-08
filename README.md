@@ -1,32 +1,26 @@
 # smile-harness
 
-A minimal, spec-driven Python coding-agent harness with ReAct loop, guardrails, and feedback validation.
+一个极简、SPEC 驱动的 Python coding agent harness，含 ReAct 主循环、护栏治理与反馈闭环。
 
-Built for the AI4SE final project — a hands-on exploration of coding-agent internals: tool dispatch, ReAct decision loops, guardrail enforcement, and multi-source feedback validation.
+AI4SE 期末项目——深入探索 coding agent 内部机制：工具分发、ReAct 决策循环、护栏拦截、多源反馈校验。
 
-## Features
+## 特性
 
-- **ReAct Agent Loop** — think, choose an action, observe feedback, repeat
-- **Tool System** — built-in tools: `read_file`, `write_file`, `edit_file`, `list_dir`, `run_shell`
-- **Guardrails** — block dangerous shell commands (`rm -rf`, `sudo`, etc.)
-- **Feedback Pipeline** — pytest runner, exit-code validator, taxonomy classifier
-- **Credential Management** — keyring-backed, never in plaintext files
-- **CLI (`minicc`)** — task runner, config init, key management
-- **Web Frontend** — FastAPI + HTML chat page (`/chat` endpoint)
-- **Mock LLM** — scripted ReAct responses for deterministic testing
+- **ReAct Agent 主循环** — 思考 → 选择动作 → 观察反馈 → 重复
+- **工具系统** — 内置工具：`read_file`、`write_file`、`edit_file`、`list_dir`、`run_shell`
+- **三级护栏** — 拦截危险 shell 命令（`rm -rf`、`sudo` 等），致命/危险/安全三级分类
+- **反馈闭环** — pytest 运行器、exit-code 探针、8 类 taxonomy 分类器、自纠循环
+- **凭据管理** — keyring 安全存储，绝不落明文文件
+- **CLI（`minicc`）** — 任务执行、配置初始化、密钥管理
+- **Web 前端** — FastAPI + 极简聊天页（`/chat` 端点）
+- **Mock LLM** — 脚本化 ReAct 响应，支持确定性离线测试
 
-## Installation
+## 安装
 
-### From PyPI (planned)
-
-```bash
-pip install smile-harness
-```
-
-### From source (editable)
+### 源码安装（开发模式）
 
 ```bash
-git clone https://github.com/example/smile-harness
+git clone https://github.com/smilehan0228/smile-harness.git
 cd smile-harness
 pip install -e .
 ```
@@ -38,21 +32,21 @@ docker build -t smile-harness .
 docker run smile-harness minicc --help
 ```
 
-## Quick Start
+## 快速开始
 
-### Run a coding task
+### 运行 coding 任务
 
 ```bash
-minicc task "fix the bug in utils.py"
+minicc task "修复 utils.py 中的 bug"
 ```
 
-### Initialize config
+### 初始化配置
 
 ```bash
 minicc config init
 ```
 
-This creates a `config.yaml` in the current directory with sensible defaults:
+会在当前目录生成 `config.yaml`，含合理默认值：
 
 ```yaml
 tools:
@@ -79,95 +73,95 @@ llm:
 max_iters: 5
 ```
 
-### Configure credentials
+### 配置凭据
 
-Set your LLM API key securely via keyring:
+通过 keyring 安全存储 LLM API Key：
 
 ```bash
 minicc key set deepseek_api_key
-# Enter value for 'deepseek_api_key': [hidden input]
+# 输入 'deepseek_api_key' 的值：[隐藏输入]
 ```
 
-Check credential status:
+查看凭据状态：
 
 ```bash
 minicc key show deepseek_api_key
-# Credential 'deepseek_api_key': 已设置
+# 凭据 'deepseek_api_key'：已设置
 
 minicc key list
 # deepseek_api_key
 ```
 
-Clear a credential:
+清除凭据：
 
 ```bash
 minicc key clear deepseek_api_key
 ```
 
-## CLI Reference
+## CLI 命令参考
 
-| Command | Description |
+| 命令 | 说明 |
 |---------|-------------|
-| `minicc task <desc>` | Run a coding task with the agent loop |
-| `minicc config init` | Generate default `config.yaml` |
-| `minicc config edit` | Print the config file path |
-| `minicc key set <name>` | Securely store a credential |
-| `minicc key show <name>` | Check credential status |
-| `minicc key list` | List all stored credentials |
-| `minicc key clear <name>` | Remove a credential |
-| `minicc --help` | Show full help |
+| `minicc task <描述>` | 运行 coding 任务 |
+| `minicc config init` | 生成默认 `config.yaml` |
+| `minicc config edit` | 打印配置文件路径 |
+| `minicc key set <名称>` | 安全存储凭据 |
+| `minicc key show <名称>` | 查看凭据状态 |
+| `minicc key list` | 列出所有已存凭据 |
+| `minicc key clear <名称>` | 删除凭据 |
+| `minicc --help` | 显示完整帮助 |
 
-## Architecture
+## 架构
 
 ```
 smile_harness/
-├── cli/          # minicc CLI (argparse)
-├── config/       # YAML config loading
-├── creds/        # keyring + env credential store
-├── feedback/     # pytest runner, exitcode, taxonomy
-├── guardrails/   # dangerous command detection, HITL
-├── llm/          # LLM abstraction (base + mock)
-├── loop/         # ReAct decision + main loop
-├── memory/       # in-memory storage + retrieval
-├── tools/        # dispatcher, fs, shell tools
-└── web/          # FastAPI server + chat HTML
+├── cli/          # minicc 命令行（argparse）
+├── config/       # YAML 配置加载
+├── creds/        # keyring + .env 凭据存储
+├── feedback/     # pytest 运行器、exit-code 探针、taxonomy 分类器
+├── guardrails/   # 危险命令检测、HITL 状态机
+├── llm/          # LLM 抽象层（base + mock）
+├── loop/         # ReAct 决策解析 + 主循环
+├── memory/       # 内存存储 + 检索
+├── tools/        # 工具分发、文件操作、shell 执行
+└── web/          # FastAPI 服务 + 聊天 HTML
 ```
 
-## Known Limitations
+## 已知限制
 
-- **Python 3.11+** required
-- **Mock LLM only** — the harness currently uses `MockLLM` with scripted responses. Real LLM integration requires a user-provided API key and a provider adapter (T2 milestone).
-- **No persistent state** — sessions are in-memory; no database or checkpointing.
-- **Single-user** — no multi-tenancy or concurrent sessions.
+- **Python 3.11+** 必须
+- **仅 Mock LLM** — 当前使用 MockLLM 脚本化响应。真实 LLM 接入需用户提供 API Key 及供应商适配器。
+- **无持久化状态** — 会话存于内存，无数据库或检查点。
+- **单用户** — 不支持多租户或并发会话。
 
-## Development
+## 开发
 
-### Setup
+### 环境准备
 
 ```bash
 pip install -e .
 ```
 
-### Run tests
+### 运行测试
 
 ```bash
 pytest -q
 ```
 
-### Run the web server
+### 启动 Web 服务
 
 ```bash
 python -m uvicorn smile_harness.web.server:app --reload
 ```
 
-Then open http://localhost:8000 to see the chat page.
+然后打开 http://localhost:8000 查看聊天页面。
 
-### Run the demo
+### 运行机制演示
 
 ```bash
 python demo/demo_mechanisms.py
 ```
 
-## License
+## 许可证
 
 MIT
