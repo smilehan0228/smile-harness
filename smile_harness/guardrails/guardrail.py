@@ -88,19 +88,27 @@ def _resolve_path(path: str) -> str:
 def _is_path_inside(path: str, root: str) -> bool:
     """检查 *path* 是否在 *root* 目录内（含完全相等）。
 
-    自动处理 LLM 常见的 Unix 风格绝对路径（以 ``/`` 开头），
-    将其视为相对于当前工作目录的路径。
+    采用两层检查策略：
+    1. 先按原路径解析判断（处理绝对路径场景）
+    2. 若不通过且 path 以 ``/`` 或 ``\\`` 开头，则去掉前导斜杠再判断
+       （处理 LLM 常见的 /hello.py 场景——LLM 用 / 表示"项目根目录"）
     """
-    # 规范化：移除前导斜杠（LLM 常输出 /hello.py 而非 hello.py）
-    path = path.lstrip("/").lstrip("\\") or "."
-    root = root.lstrip("/").lstrip("\\") or "."
+    def _check(p: str, r: str) -> bool:
+        rp = _resolve_path(p)
+        rr = _resolve_path(r)
+        if not rr.endswith(os.sep):
+            rr += os.sep
+        return rp == rr.rstrip(os.sep) or rp.startswith(rr)
 
-    resolved_path = _resolve_path(path)
-    resolved_root = _resolve_path(root)
-    # 确保 root 以分隔符结尾，防止 /root_foo 被误判为 /root 的子目录
-    if not resolved_root.endswith(os.sep):
-        resolved_root += os.sep
-    return resolved_path == resolved_root.rstrip(os.sep) or resolved_path.startswith(resolved_root)
+    # 第一层：原路径
+    if _check(path, root):
+        return True
+
+    # 第二层：去掉前导斜杠（LLM 常输出 /hello.py 而非 hello.py）
+    if path.startswith("/") or path.startswith("\\"):
+        return _check(path.lstrip("/").lstrip("\\"), root)
+
+    return False
 
 
 def _extract_command_text(action: Action) -> str | None:
