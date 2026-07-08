@@ -99,34 +99,56 @@ def _run_task(args: argparse.Namespace) -> int:
 
     # 加载配置（如存在）
     config_path = args.config
+    config = None
     if os.path.exists(config_path):
         try:
             config = load_config(config_path)
-            max_iters = config.max_iters
-            project_root = "."
         except Exception as e:
             print(f"Error loading config: {e}", file=sys.stderr)
             return 1
-    else:
-        max_iters = 5
-        project_root = "."
+    max_iters = config.max_iters if config else 5
+    project_root = "."
 
-    # 使用 MockLLM 脚本驱动（真实 LLM 尚未接入）
-    # 脚本：先 list_dir 查看项目，然后 final=true 完成
-    script = [
-        json.dumps({
-            "thought": "Let me check the project structure first.",
-            "action": "list_dir",
-            "action_input": {"path": "."},
-            "final": False,
-        }),
-        json.dumps({
-            "thought": f"Task completed: {task_description}",
-            "final": True,
-        }),
-    ]
+    # 尝试创建真实 LLM（如已配置 API key）
+    llm = None
+    if config is not None:
+        creds = CredentialManager()
+        api_key = creds.get(f"{config.llm.provider}_api_key")
+        if api_key:
+            try:
+                from smile_harness.llm.openai_compatible import OpenAICompatibleLLM
+                llm = OpenAICompatibleLLM(
+                    api_key=api_key,
+                    base_url=config.llm.endpoint,
+                    model=config.llm.model,
+                    temperature=config.llm.temperature,
+                )
+            except Exception as e:
+                print(f"Warning: failed to create LLM: {e}", file=sys.stderr)
 
-    llm = MockLLM(script)
+    # 回退到 MockLLM（无 API key 或创建失败）
+    if llm is None:
+        if config is not None:
+            print(
+                f"Warning: no API key found for '{config.llm.provider}'. "
+                f"Run 'minicc key set {config.llm.provider}_api_key' to configure. "
+                f"Falling back to MockLLM.",
+                file=sys.stderr,
+            )
+        script = [
+            json.dumps({
+                "thought": "Let me check the project structure first.",
+                "action": "list_dir",
+                "action_input": {"path": "."},
+                "final": False,
+            }),
+            json.dumps({
+                "thought": f"Task completed: {task_description}",
+                "final": True,
+            }),
+        ]
+        llm = MockLLM(script)
+
     dispatcher = Dispatcher(project_root)
     loop = AgentLoop(
         llm=llm,
