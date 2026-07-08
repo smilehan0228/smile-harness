@@ -40,6 +40,12 @@ docker run smile-harness minicc --help
 
 ## Web 服务
 
+### 在线体验
+
+公网部署地址：**[http://101.37.170.172:8000/](http://101.37.170.172:8000/)**（阿里云 2核2G）
+
+### 本地运行
+
 ```bash
 python -m uvicorn smile_harness.web.server:app --reload
 ```
