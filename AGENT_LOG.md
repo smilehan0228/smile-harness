@@ -84,3 +84,29 @@
   1. `gh pr merge` 在 worktree 内执行会因 main 被主 worktree 占用而失败；改在主仓库 fetch+merge 更稳。
   2. GitHub 在 PR 创建时可能自动合并（若 CI 已过），本地需 `reset --hard origin/main` 对齐。
 - **下一步**：Band B 剩余（T3/T5/T8/T9/T10 可并行，T6 待 T5 后）。
+
+---
+
+## 2026-07-08 — Band B 批量并行（T3/T5/T8/T9/T10，5 个 subagent 并发 worktree）
+
+- **时间**：2026-07-08
+- **task**：T3, T5, T8, T9, T10（Band B）
+- **技能**：`using-git-worktrees` + `subagent-driven-development` + `test-driven-development`
+- **subagents**：5 个 general-purpose agent 并发，各自 isolation=worktree
+- **产出**：
+
+| Task | PR | Commit | 新增 | 测试 |
+|------|-----|--------|------|------|
+| T3 三级护栏 | #5 | `7db182d` | `guardrails/guardrail.py` | 22/22 (9 new) |
+| T5 taxonomy | #3 | `2c2fdb5` | `feedback/taxonomy.py` | 22/22 (9 new) |
+| T8 记忆 | #6 | `6b3af30` | `memory/store.py`, `retrieve.py` | 21/21 (8 new) |
+| T9 配置 | #4 | `e331f4e` | `config/schema.py`, `loader.py` | 19/19 (6 new) |
+| T10 凭据 | #7 | `c9a4403` | `creds/manager.py`, `keyring_store.py`, `env_store.py` | 31/31 (18 new) |
+
+- **全量**：**63/63 tests passed**，0 回归。
+- **人工干预**：单阶段评审通过所有 5 个 task；GitHub squash merge PR #3–#7；worktree 清理因 branch 被 worktree 持有所阻（非阻塞，后续手动清理）。
+- **教训**：
+  1. 5 个并发 worktree subagent 全部成功，无冲突——证明 Band B 的并行设计合理。
+  2. `gh pr merge --delete-branch` 在 worktree 仍持分支时失败，但 merge 本身成功；后续需手动 `git worktree remove` 清理。
+  3. T10 测试用自定义 `MemoryKeyring(KeyringBackend)` 替代 `keyring.backends.memory`（因当前 keyring 版本中该路径不可用），设计决策值得记录。
+- **下一步**：Band C 集成——T6 校验器注册表（依赖 T5，可立即启动），T4 HITL（依赖 T3），T7 自纠闭环（依赖 T6+T2），T11 ReAct 解析（依赖 T1+T2+T3）。

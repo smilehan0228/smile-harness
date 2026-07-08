@@ -49,6 +49,7 @@
 - **实现要点**：tier=fatal/danger/safe；`blocked=True` 表示不可自动执行（致命=拒绝/危险=转 HITL）；致命自动阻断不可覆盖；危险转 HITL；安全放行；写路径越界→fatal（用 `realpath` 防 `..` 穿越）；正则黑名单可配置但致命集不可关；未知动作/空命令→danger。**"覆盖已存在文件"不在本纯函数判定**，留到 T2 分发层（执行前检查存在性后转 HITL）。
 - **验证步骤**：`test_rm_rf_is_fatal`；`test_git_push_force_is_fatal`；`test_curl_egress_is_danger`；`test_read_is_safe`；`test_write_outside_root_is_fatal`。
 - **依赖**：T1（仅需 `Action` 类型）。
+- ✅ **完成**：commit `7db182d`（PR #5 squash 合并 main）。三层检查顺序 fatal→danger→safe→默认 danger；路径越界用 realpath+分隔符后缀防误判；disabled 危险规则无 active 命中时放行。
 
 ### T5 taxonomy 分类器
 - **目标**：把校验产物归入固定 8 类并给修复提示。
@@ -56,6 +57,7 @@
 - **实现要点**：`Taxonomy` 枚举固定 8 值（`SYNTAX_ERROR/IMPORT_ERROR/ASSERTION_FAIL/TIMEOUT/LINT_VIOLATION/PASS/RUNTIME_ERROR/UNKNOWN`）；`classify(raw_output) → (category, fix_hint)` 纯函数；**按特异性高→低顺序匹配**：`SYNTAX_ERROR→IMPORT_ERROR→ASSERTION_FAIL→TIMEOUT→LINT_VIOLATION→PASS→RUNTIME_ERROR→UNKNOWN`（避免 `RUNTIME_ERROR` 的 "Error" 子串误吞）。
 - **验证步骤**：`test_assertion_traceback_classified`；`test_syntax_error_classified`；`test_timeout_classified`；`test_exit_zero_is_pass`；`test_unknown_rawPassthrough`。
 - **依赖**：无（独立纯函数，零耦合）。
+- ✅ **完成**：commit `2c2fdb5`（PR #3 squash 合并 main）。PASS 特殊处理（exit_code==0 且无错误标记）；每类返回 fix_hint。
 
 ### T6 校验器注册表 + PytestValidator + ExitCodeProbe
 - **目标**：独立 Validator 模块，解析产物→FeedbackResult。
@@ -70,6 +72,7 @@
 - **实现要点**：`.harness/*.md` 读写 `MemoryEntry`；`retrieve(query, n)`=最近 N + 关键词匹配；按需注入。
 - **验证步骤**：`test_write_then_retrieve_by_keyword`；`test_recent_n_ordering`；`test_no_credentials_stored`。
 - **依赖**：T1。
+- ✅ **完成**：commit `6b3af30`（PR #6 squash 合并 main）。YAML front matter 序列化；凭据检测（password/token/api_key/secret）拒绝写入；损坏文件容忍（WARN 跳过）。
 
 ### T9 配置 schema + YAML loader
 - **目标**：声明式 YAML 约束五项。
@@ -77,6 +80,7 @@
 - **实现要点**：`Config` dataclass（tools/guardrail_rules/validators/max_iters/llm）；loader 校验+报行号；致命规则不可关闭。
 - **验证步骤**：`test_load_valid_yaml`；`test_invalid_yaml_raises_with_line`；`test_fatal_rules_not_disableable`。
 - **依赖**：T1。
+- ✅ **完成**：commit `e331f4e`（PR #4 squash 合并 main）。bool 与 int 区分（max_iters 显式排除 bool）；YAML 行号 0-based→1-based 转换。
 
 ### T10 凭据管理
 - **目标**：key 安全存取，不进 git/日志。
@@ -84,6 +88,7 @@
 - **实现要点**：keyring→Windows Credential Manager 主；.env 兜底；隐藏录入、show 不回显、可清除。
 - **验证步骤**：`test_keyring_set_get_with_fake_backend`；`test_show_does_not_echo_plaintext`；`test_clear_sets_unset`；`test_env_fallback_when_keyring_unavailable`。
 - **依赖**：T1。
+- ✅ **完成**：commit `c9a4403`（PR #7 squash 合并 main）。测试隔离用 MemoryKeyring(KeyringBackend)；keyring 不可用→.env fallback（标注明文风险）；list_keys session 追踪 + .env 解析补全。
 
 ---
 
