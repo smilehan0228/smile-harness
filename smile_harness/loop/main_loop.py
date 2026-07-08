@@ -103,9 +103,6 @@ class AgentLoop:
             # 2. call_llm → raw_response
             try:
                 raw_response = self._llm.complete(messages, self._build_tools())
-                # DEBUG: 打印 LLM 原始返回
-                import sys
-                print(f"\n[DEBUG iter {iteration}] LLM raw response:\n{raw_response[:500]}\n", file=sys.stderr)
             except StopIteration:
                 # LLM 脚本耗尽：检查反馈状态后退出
                 should_stop, reason = feedback_loop.should_stop()
@@ -203,7 +200,7 @@ class AgentLoop:
             # 8. dispatch(action) → ToolResult
             tool_result = self._dispatcher.dispatch(decision.action)
 
-            # 9. if not ToolResult.ok: record failure & continue
+            # 9. 记录工具结果（成功或失败都回灌给 LLM）
             if not tool_result.ok:
                 fb = FeedbackResult(
                     category=Taxonomy.UNKNOWN,
@@ -222,6 +219,15 @@ class AgentLoop:
                         "final_message": f"Stopped: {reason}",
                     }
                 continue
+
+            # 成功结果回灌：让 LLM 知道工具执行了什么
+            fb = FeedbackResult(
+                category=Taxonomy.PASS,
+                message=f"Tool '{decision.action.name}' executed successfully",
+                fix_hint="",
+                raw=tool_result.content[:500] if tool_result.content else "",
+            )
+            feedback_history.append(fb)
 
             # 10. validate (if validator configured) → FeedbackResult
             if validate is not None:
