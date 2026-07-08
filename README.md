@@ -17,7 +17,13 @@ AI4SE 期末项目——深入探索 coding agent 内部机制：工具分发、
 
 ## 安装
 
-### 源码安装（开发模式）
+### PyPI 安装
+
+```bash
+pip install smile-harness
+```
+
+### 源码安装（Git Clone）
 
 ```bash
 git clone https://github.com/smilehan0228/smile-harness.git
