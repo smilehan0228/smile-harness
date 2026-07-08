@@ -137,3 +137,35 @@
   2. T12 作为集成点，测试驱动 3 个机制演示——MockLLM 脚本确定性复现，验证了所有核心模块的串联正确性。
   3. `gh pr merge` 在 worktree 内因分支被占用总是报 `--delete-branch` 失败，但 merge 本身成功——这是已知的 worktree 限制，不影响功能。
 - **下一步**：Band D 前端/分发/部署（T13–T18）+ Band E 文档（T19–T20）。
+
+---
+
+## 2026-07-09 — Band D 批量推进（T13/T14/T15 并行 → T16 → T17 → T18 串行）
+
+- **时间**：2026-07-09
+- **task**：T13, T14, T15, T16, T17, T18（Band D）
+- **技能**：`using-git-worktrees` + `subagent-driven-development` + `test-driven-development`
+- **subagents**：3 并发（T13/T14/T15）→ 1（T16）→ 1（T17）→ 1（T18，含 rebase）
+- **产出**：
+
+| Task | PR | Commit | 新增 | 测试 |
+|------|-----|--------|------|------|
+| T13 机制演示 | #14 | `9783c2a` | `demo/demo_mechanisms.py`, `demo/broken_module/` | 119/119 (1 new) |
+| T14 CLI | #15 | `fd98a7e` | `cli/app.py` (minicc) | 145/145 (26 new) |
+| T15 薄 Web 前端 | #13 | `c2ea2fe` | `web/server.py` (FastAPI + chat) | 145/145 (27 new) |
+| T16 打包分发 | #17 | `806eab5` | `Dockerfile`, `README.md`, `pyproject.toml` 元数据 | 158/158 (13 new) |
+| T17 CI | #18 | `f530d26` | `.github/workflows/ci.yml`, `.gitlab-ci.yml` docker-build | 164/164 (6 new) |
+| T18 云部署 | #16 | `6a2393a` | `deploy/docker-compose.yml`, `nginx.conf`, `deploy/README.md` | 172/172 (8 new) |
+
+- **全量**：**172/172 tests passed**，0 回归。
+- **人工干预**：
+  - T13–T15 由前序 session 的 subagent 并行完成，单阶段评审通过，squash merge。
+  - T16 由 subagent 完成，主 agent 在 worktree 验证 158/158 通过后 merge（PR #17）。
+  - T17 由 subagent 完成，新增 `.github/workflows/ci.yml`（GitHub Actions: unit-test + docker-build）+ `.gitlab-ci.yml` docker-build job，164/164 通过后 merge（PR #18）。
+  - T18 worktree 与 T16 Dockerfile 冲突：主 agent 手动 rebase T18 worktree 到 main（含 T16），保留 T16 Dockerfile（CLI 默认），T18 通过 docker-compose `command` 覆盖启动 uvicorn；更新 `test_dockerfile_valid` 适配；166/166 通过后 merge（PR #16）。
+- **教训**：
+  1. T16 和 T18 都创建 Dockerfile，但 PLAN 未标注此冲突——T18 依赖 T15 而非 T16 导致并行开发时文件冲突。实际合并时需 rebase + 手动解决。
+  2. T18 的 docker-compose `command` 覆盖是良好的解耦模式：基础 Dockerfile 保持 CLI 默认，Web 部署通过 compose 文件注入命令。
+  3. GitHub Actions 作为 `.gitlab-ci.yml` 的补充是务实选择——repo 在 GitHub 托管，GitLab CI 语法虽在但实际不会触发。
+  4. T13 的 commit message 异常（"@" 而非规范格式），因 subagent 在 PR body 中使用了 `@` 字符导致 GitHub 截断。不影响功能，但需注意 PR body 避免首行特殊字符。
+- **下一步**：Band E 文档——T19 AGENT_LOG.md（本条）更新、T20 REFLECTION.md 撰写。

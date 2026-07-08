@@ -156,18 +156,21 @@
 - **涉及文件**：`Dockerfile`、`pyproject.toml` 补打包元数据、`README.md` 补获取/运行/key 配置/限制。
 - **验证步骤**：`docker build` + `docker run --rm smile-harness --help`；`pip install -e .` 可用。
 - **依赖**：T14。
+- ✅ **完成**：commit `806eab5`（PR #17 squash 合并 main）。Dockerfile (Python 3.11-slim) + 完整 README + pyproject.toml 元数据 + 13 个打包验证测试。
 
 ### T17 CI
 - **目标**：pipeline 绿、含 `unit-test` + `docker-build`。
 - **涉及文件**：`.gitlab-ci.yml`。
 - **验证步骤**：最后一次 CI pass；`unit-test` job 存在。
 - **依赖**：T16、全部测试。
+- ✅ **完成**：commit `f530d26`（PR #18 squash 合并 main）。.gitlab-ci.yml 新增 build stage + docker-build job；新增 .github/workflows/ci.yml（GitHub Actions: unit-test + docker-build）；+6 CI 配置验证测试。
 
 ### T18 云部署
 - **目标**：线上 WebUI 可访问。
 - **涉及文件**：部署配置、`README.md` 部署架构节。
 - **验证步骤**：公网 URL 可访问 WebUI。
 - **依赖**：T15。
+- ✅ **完成**：commit `6a2393a`（PR #16 squash 合并 main）。docker-compose.yml + nginx.conf + deploy/README.md（Docker 部署 / 阿里云 ECS 部署 / systemd）+ 8 个部署验证测试。Dockerfile 复用 T16，Web 部署通过 docker-compose command 覆盖。
 
 ---
 
