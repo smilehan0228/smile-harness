@@ -358,3 +358,41 @@ minicc task "创建 hello.py"        # 有 key 走真实 LLM，无 key 回退 Mo
 - 用户已存 key，要求验证 → curl 测试发现仍用 MockLLM → 深入调试
 - 用户反馈 `minicc task` 没创建文件 → 发现 400 Bad Request → 修复 tools 格式
 - 用户反馈 Web 仍用 MockLLM → 发现 uvicorn 未重载后续改动 → 重启解决
+
+### CI 调试（第 8–10 轮，3 次 push 才过）
+
+**第 8 轮：guardrail 只 strip path 不 strip root**
+
+- 现象：CI Linux 上 `test_write_inside_root_is_safe` 失败 — `assert 'fatal' == 'safe'`
+- 原因：`_is_path_inside` 只 strip 了 `path` 的前导 `/`，没 strip `root`。Linux 上 path 变相对路径而 root 保持绝对路径，解析到不同目录
+- 解决：同时 strip path 和 root 的前导 `/`
+- 结果：guardrail 测试通过，但其他 3 个测试仍失败
+
+**第 9 轮：粗暴 strip 破坏了 Linux 绝对路径**
+
+- 现象：CI 上 `test_demo`、`test_fixes_syntax_error_to_green`、`test_max_iters_stops` 失败，全部返回 `stopped`
+- 原因：同时 strip path 和 root 后，`/tmp/xxx/mod.py` → `tmp/xxx/mod.py`（相对路径），`/tmp/xxx` → `tmp/xxx`（相对路径），两者在 CWD 下解析到不同位置，路径越界误判为 fatal
+- 解决：改为两层检查——先按原路径解析判断，不通过再尝试 strip 前导 `/` 后判断
+
+**第 10 轮：dispatcher 也 strip 导致文件写到错误位置**
+
+- 现象：CI 仍失败，demo② 反馈 "File not found"
+- 原因：dispatcher 对所有路径都 strip 前导 `/`，`/tmp/xxx/mod.py` → `tmp/xxx/mod.py`，文件写到了 CWD 下的 `tmp/xxx/mod.py` 而非 `/tmp/xxx/mod.py`
+- 解决：dispatcher 还原为透传路径；guardrail 用两层检查；main_loop 中仅 strip 单层路径（`/hello.py` → `hello.py`），多层路径保留原样
+
+### 最终修改文件（PR #21 squash）
+
+| 文件 | 改动 |
+|------|------|
+| `smile_harness/llm/openai_compatible.py` | tool_calls → ReAct JSON 转换 |
+| `smile_harness/loop/main_loop.py` | 累积式 messages + 工具结果回灌 + system prompt + 单层路径 strip |
+| `smile_harness/loop/decision.py` | final 字段容错 |
+| `smile_harness/guardrails/guardrail.py` | `_is_path_inside` 两层检查 |
+| `smile_harness/web/server.py` | /chat 端点集成真实 LLM |
+| `tests/test_web.py` | mock CredentialManager |
+
+### 补充教训
+
+5. **路径规范化要分层处理**：guardrail 负责验证（两层检查），main_loop 负责规范化（仅单层 strip），dispatcher 透传不修改。职责分离避免重复 strip 导致语义错误
+6. **Windows 本地通过 ≠ Linux CI 通过**：`os.path.isabs`、路径解析、`/` 语义在 Windows 和 Linux 上完全不同，路径相关代码必须在 CI 上验证
+7. **Squash merge 后中间 commit 的 log 更新会丢失**：本次 T23 的 AGENT_LOG.md 更新在原 commit `52f7a0c` 中，squash 后该 commit 消失，但内容被合并到 squash commit 中——本次追加的 CI 调试记录需要单独提交
