@@ -1,9 +1,10 @@
-"""Feedback 反馈模块 — 分类 + 修复提示 + 校验器"""
+"""Feedback 反馈模块 — 分类 + 修复提示 + 校验器 + 自纠闭环"""
 
 from smile_harness.feedback.taxonomy import Taxonomy, classify
 from smile_harness.feedback.validator import FeedbackResult, Validator, ValidatorRegistry
 from smile_harness.feedback.pytest_val import PytestValidator
 from smile_harness.feedback.exitcode import ExitCodeProbe
+from smile_harness.feedback.loop import FeedbackLoop
 
 __all__ = [
     "Taxonomy",
@@ -13,4 +14,5 @@ __all__ = [
     "ValidatorRegistry",
     "PytestValidator",
     "ExitCodeProbe",
+    "FeedbackLoop",
 ]
