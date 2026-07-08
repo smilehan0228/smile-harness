@@ -1,0 +1,62 @@
+# ============================================================
+# smile-harness .gitignore
+# 重点是凭据/密钥绝不进 git（§3.1）
+# ============================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# --- 虚拟环境 ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- 测试 / lint 缓存 ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# 🔒 SECURITY: 凭据 / 密钥 —— 绝不提交
+# ============================================================
+.env
+.env.*
+*.env
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+credentials.json
+service-account*.json
+*_api_key*.txt
+# Windows Credential Manager 备份
+*.cred
+
+# --- smile-harness 运行时记忆（dogfood 时不提交运行态）---
+.harness/
+
+# --- 日志 ---
+*.log
+logs/
