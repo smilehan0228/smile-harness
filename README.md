@@ -2,9 +2,11 @@
 
 一个极简、SPEC 驱动的 Python coding agent harness，含 ReAct 主循环、护栏治理与反馈闭环。
 
-本项目已部署到云服务器，部署地址：[http://101.37.170.172:8000/](http://101.37.170.172:8000/)  可直接体验
+本项目已部署到云服务器，部署地址：[http://101.37.170.172:8000/](http://101.37.170.172:8000/) ，不过，由于预算原因，我并未对服务器后端进行大模型的API配置，目前在公网上使用的是mock llm，如有测试需要，可以用南大邮箱联系我，我把API key传到服务器后端。
 
-AI4SE 期末项目——深入探索 coding agent 内部机制：工具分发、ReAct 决策循环、护栏拦截、多源反馈校验。
+这并不影响你在本地使用自己的API key来使用我的agent。
+
+这是我的AI4SE 期末项目——深入探索 coding agent 内部机制：工具分发、ReAct 决策循环、护栏拦截、多源反馈校验。
 
 ## 特性
 
@@ -41,29 +43,22 @@ docker build -t smile-harness .
 docker run smile-harness minicc --help
 ```
 
-## Web 服务
-本项目已部署至云服务器，如有需要，可以在本地环境运行
-### 在线体验
-
-公网部署地址：**[http://101.37.170.172:8000/](http://101.37.170.172:8000/)**（阿里云 2核2G）
-
-### 本地运行
-
-```bash
-python -m uvicorn smile_harness.web.server:app --reload
-```
-
-然后打开 http://localhost:8000 查看聊天页面。
 
 ## 快速开始
+smile-harness 默认使用 DeepSeek API，也支持任意 OpenAI 兼容供应商。
 
-### 运行 coding 任务
+### 1. 获取 API Key
+
+在 [DeepSeek 平台](https://platform.deepseek.com/) 注册并获取 API Key。
+
+### 2. 存储 API Key
 
 ```bash
-minicc task "修复 utils.py 中的 bug"
+minicc key set deepseek_api_key
+# 提示输入，粘贴 key 后回车（隐藏输入，不回显）
 ```
 
-### 初始化配置
+### 3. 生成配置文件
 
 ```bash
 minicc config init
@@ -89,20 +84,23 @@ validators:
 
 llm:
   provider: deepseek
-  model: deepseek-chat
+  model: deepseek-v4-flash  #可以在该配置文件当中按需修改模型
   endpoint: https://api.deepseek.com/v1
   temperature: 0.0
 
 max_iters: 5
 ```
+如需使用其他供应商（如 OpenAI、Kimi 等），修改 `provider`、`endpoint` 和 `model` 字段即可，然后 `minicc key set {provider}_api_key` 配置对应 key。
 
+
+#### 注意： 有 API key 时自动使用真实 LLM；无 key 时回退到 MockLLM 并提示警告。部署至云服务器的项目正是因为我没有配置API key，所以才使用mockllm的。
 ### 配置凭据
 
 通过 keyring 安全存储 LLM API Key：
 
 ```bash
 minicc key set deepseek_api_key
-# 输入 'deepseek_api_key' 的值：[隐藏输入]
+# 回车之后，输入 'deepseek_api_key' 的值：[隐藏输入]
 ```
 
 查看凭据状态：
@@ -121,7 +119,7 @@ minicc key list
 minicc key clear deepseek_api_key
 ```
 
-## CLI 命令参考
+### CLI 命令参考
 
 | 命令 | 说明 |
 |---------|-------------|
@@ -133,6 +131,13 @@ minicc key clear deepseek_api_key
 | `minicc key list` | 列出所有已存凭据 |
 | `minicc key clear <名称>` | 删除凭据 |
 | `minicc --help` | 显示完整帮助 |
+
+
+###  运行任务
+参考上面的命令格式，我们可以运行agent。
+```bash
+minicc task "在项目根目录创建一个 hello.py"
+```
 
 ## 架构
 
@@ -157,50 +162,12 @@ smile_harness/
 - **无持久化状态** — 会话存于内存，无数据库或检查点。
 - **单用户** — 不支持多租户或并发会话。
 
-## 配置真实 LLM
 
-smile-harness 默认使用 DeepSeek API，也支持任意 OpenAI 兼容供应商。
 
-### 1. 获取 API Key
-
-在 [DeepSeek 平台](https://platform.deepseek.com/) 注册并获取 API Key。
-
-### 2. 存储 API Key
-
-```bash
-minicc key set deepseek_api_key
-# 提示输入，粘贴 key 后回车（隐藏输入，不回显）
-```
-
-### 3. 生成配置文件
-
-```bash
-minicc config init
-```
-
-生成的 `config.yaml` 默认使用 DeepSeek：
-
-```yaml
-llm:
-  provider: deepseek
-  model: deepseek-chat
-  endpoint: https://api.deepseek.com/v1
-  temperature: 0.0
-```
-
-如需使用其他供应商（如 OpenAI、Kimi 等），修改 `provider`、`endpoint` 和 `model` 字段即可，然后 `minicc key set {provider}_api_key` 配置对应 key。
-
-### 4. 运行任务
-
-```bash
-minicc task "在项目根目录创建一个 hello.py"
-```
-
-有 API key 时自动使用真实 LLM；无 key 时回退到 MockLLM 并提示警告。
 
 ## 测试
 
-### 运行全部测试
+### 一键运行全部测试
 
 可一键运行所有共 183 个测试，含核心机制确定性单测（MockLLM，无需网络）：
 
@@ -208,7 +175,8 @@ minicc task "在项目根目录创建一个 hello.py"
 pytest -q
 ```
 
-### 机制演示
+### harness核心机制的确定性单元测试
+
 
 对应 SPEC A.6 三项机制演示，全程 MockLLM，确定性复现：
 
