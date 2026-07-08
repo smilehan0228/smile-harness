@@ -163,3 +163,46 @@ def test_minicc_help_runs():
     assert "task" in result.stdout, "minicc --help should mention task command"
     assert "config" in result.stdout, "minicc --help should mention config command"
     assert "key" in result.stdout, "minicc --help should mention key command"
+
+
+# ── T17: CI 配置验证 ────────────────────────────────────────────────
+
+
+def test_gitlab_ci_exists():
+    """.gitlab-ci.yml 文件存在。"""
+    gitlab_ci_path = PROJECT_ROOT / ".gitlab-ci.yml"
+    assert gitlab_ci_path.exists(), f".gitlab-ci.yml not found at {gitlab_ci_path}"
+
+
+def test_gitlab_ci_has_unit_test_job():
+    """.gitlab-ci.yml 包含 unit-test job。"""
+    gitlab_ci_path = PROJECT_ROOT / ".gitlab-ci.yml"
+    content = gitlab_ci_path.read_text(encoding="utf-8")
+    assert "unit-test:" in content, ".gitlab-ci.yml missing unit-test job"
+
+
+def test_gitlab_ci_has_docker_build_job():
+    """.gitlab-ci.yml 包含 docker-build job。"""
+    gitlab_ci_path = PROJECT_ROOT / ".gitlab-ci.yml"
+    content = gitlab_ci_path.read_text(encoding="utf-8")
+    assert "docker-build:" in content, ".gitlab-ci.yml missing docker-build job"
+
+
+def test_github_actions_ci_exists():
+    """.github/workflows/ci.yml 文件存在。"""
+    ci_path = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
+    assert ci_path.exists(), f".github/workflows/ci.yml not found at {ci_path}"
+
+
+def test_github_actions_ci_has_unit_test_job():
+    """.github/workflows/ci.yml 包含 unit-test job。"""
+    ci_path = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
+    content = ci_path.read_text(encoding="utf-8")
+    assert "unit-test:" in content, ".github/workflows/ci.yml missing unit-test job"
+
+
+def test_github_actions_ci_has_docker_build_job():
+    """.github/workflows/ci.yml 包含 docker-build job。"""
+    ci_path = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
+    content = ci_path.read_text(encoding="utf-8")
+    assert "docker-build:" in content, ".github/workflows/ci.yml missing docker-build job"
