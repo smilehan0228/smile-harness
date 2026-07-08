@@ -110,3 +110,30 @@
   2. `gh pr merge --delete-branch` 在 worktree 仍持分支时失败，但 merge 本身成功；后续需手动 `git worktree remove` 清理。
   3. T10 测试用自定义 `MemoryKeyring(KeyringBackend)` 替代 `keyring.backends.memory`（因当前 keyring 版本中该路径不可用），设计决策值得记录。
 - **下一步**：Band C 集成——T6 校验器注册表（依赖 T5，可立即启动），T4 HITL（依赖 T3），T7 自纠闭环（依赖 T6+T2），T11 ReAct 解析（依赖 T1+T2+T3）。
+
+---
+
+## 2026-07-08 — Band C 集成（T4/T6/T11 并行 → T7 → T12 串行）
+
+- **时间**：2026-07-08
+- **task**：T4, T6, T11, T7, T12（Band C）
+- **技能**：`using-git-worktrees` + `subagent-driven-development` + `test-driven-development`
+- **subagents**：3 并发（T4/T6/T11）→ 1 串行（T7）→ 1 串行（T12）
+- **产出**：
+
+| Task | PR | Commit | 新增 | 测试 |
+|------|-----|--------|------|------|
+| T4 HITL | #9 | `1abc1a7` | `guardrails/hitl.py` | 74/74 (11 new) |
+| T6 校验器 | #10 | `e5cdf18` | `feedback/validator.py`, `pytest_val.py`, `exitcode.py` | 72/72 (9 new) |
+| T11 ReAct 解析 | #8 | `51090b9` | `loop/decision.py` | 72/72 (9 new) |
+| T7 自纠闭环 | #11 | `3f16cb5` | `feedback/loop.py` | 106/106 (14 new) |
+| T12 主循环 | #12 | `85b2063` | `loop/main_loop.py` | 118/118 (12 new) |
+
+- **全量**：**118/118 tests passed**，0 回归。
+- **机制演示（A.6）**：全部通过 ✅ 护栏拦截（rm -rf / write 越界）→ 反馈闭环（feedback 注入 context）→ 修复到全绿（write→pytest 失败→edit 修复→PASS）
+- **人工干预**：单阶段评审通过所有 5 个 task；GitHub squash merge PR #8–#12。
+- **教训**：
+  1. Band C 依赖链设计合理：T4/T6/T11 无互相依赖可并行；T7 需 T6；T12 需全部。
+  2. T12 作为集成点，测试驱动 3 个机制演示——MockLLM 脚本确定性复现，验证了所有核心模块的串联正确性。
+  3. `gh pr merge` 在 worktree 内因分支被占用总是报 `--delete-branch` 失败，但 merge 本身成功——这是已知的 worktree 限制，不影响功能。
+- **下一步**：Band D 前端/分发/部署（T13–T18）+ Band E 文档（T19–T20）。

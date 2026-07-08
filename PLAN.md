@@ -65,6 +65,7 @@
 - **实现要点**：`Validator` 抽象 + 注册表；`PytestValidator` 跑 pytest 解析 exit+traceback；`ExitCodeProbe` 跑任意命令取 exit code；输出 `FeedbackResult{category,message,fix_hint,raw}`。
 - **验证步骤**：`test_pytest_validator_parses_assertion_fail`；`test_exitcode_probe_exit1_classified`。
 - **依赖**：T5。
+- ✅ **完成**：commit `e5cdf18`（PR #10 squash 合并 main）。PytestValidator 用 sys.executable -m pytest（虚拟环境安全）；ExitCodeProbe 用 shell=True + 命令模板 {target}；注册表 get 不存在返回 None。
 
 ### T8 记忆存储 + 检索
 - **目标**：跨会话 md 记忆 + 自实现检索。
@@ -100,6 +101,7 @@
 - **实现要点**：状态 pending→approved/denied；approved→执行；denied→跳过并回灌。
 - **验证步骤**：`test_danger_pending_then_approved_executes`；`test_danger_pending_then_denied_skips`。
 - **依赖**：T3。
+- ✅ **完成**：commit `1abc1a7`（PR #9 squash 合并 main）。终态锁死（APPROVED/DENIED 不可再变）；request_id 自动递增 hitl-0001；approve 不设 note，deny 需要 approver_note。
 
 ### T7 自纠闭环
 - **目标**：N 轮 + 早停 + 成功停 的反馈闭环。
@@ -107,6 +109,7 @@
 - **实现要点**：`run_loop(task, kernel)` 迭代至停机；停机条件=全绿成功 / 连续 2 同类早停 / N 到顶。
 - **验证步骤**：`test_green_stops_success`；`test_n_cap_stops`；`test_two_same_category_early_stop`。
 - **依赖**：T6、T2。
+- ✅ **完成**：commit `3f16cb5`（PR #11 squash 合并 main）。FeedbackLoop 纯状态管理器（不依赖 LLM/Dispatcher）；停机优先级 PASS > early_stop > max_iters；history 浅拷贝防篡改。
 
 ### T11 ReAct 决策解析
 - **目标**：JSON→Action，malformed 可检测。
@@ -114,6 +117,7 @@
 - **实现要点**：解析 thought/action/action_input；缺字段抛 `DecisionParseError`；`final` 标志。
 - **验证步骤**：`test_parse_valid_react`；`test_missing_field_raises`；`test_final_flag_detected`。
 - **依赖**：T1、T2、T3。
+- ✅ **完成**：commit `51090b9`（PR #8 squash 合并 main）。JSON 提取支持 markdown 代码块；严格校验 final+action 冲突、空 action、缺 thought。
 
 ### T12 主循环集成
 - **目标**：串起 LLM+工具+护栏+HITL+反馈+记忆+配置+停机。
@@ -121,6 +125,7 @@
 - **实现要点**：`organize_context→call_llm→parse→guardrail→dispatch|hitl→validate→reinject→stop_check`。
 - **验证步骤（mock LLM，对齐机制演示）**：`test_loop_blocks_fatal_action`（①）；`test_feedback_changes_next_action`（②）；`test_loop_fixes_broken_module_to_green`（③）。
 - **依赖**：T11、T7、T4、T8、T9。
+- ✅ **完成**：commit `85b2063`（PR #12 squash 合并 main）。AgentLoop 串联全部 11 模块；_auto_approve_hitl 测试友好；3 个机制演示全部通过；MockLLM 耗尽 StopIteration 妥善处理；记忆自动注入 context。
 
 ---
 
