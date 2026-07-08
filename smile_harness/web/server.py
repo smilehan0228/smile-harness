@@ -20,10 +20,15 @@ CHAT_HTML = """<!DOCTYPE html>
         .user { color: blue; }
         .agent { color: green; }
         .error { color: red; }
+        .notice { background: #fff3cd; border: 1px solid #ffc107; padding: 12px 16px; margin-bottom: 16px; border-radius: 4px; font-size: 14px; color: #856404; }
     </style>
 </head>
 <body>
     <h1>smile-harness</h1>
+    <div class="notice">
+        <strong>⚠ 注意：</strong>出于预算原因，公网部署环境使用 <strong>MockLLM</strong>（模拟 LLM 响应），仅用于演示 Agent 机制。
+        如需使用真实 LLM 评审，请联系我。
+    </div>
     <div id="messages"></div>
     <input id="input" type="text" placeholder="Enter your coding task..." onkeydown="if(event.key==='Enter')send()">
     <button onclick="send()">Send</button>
