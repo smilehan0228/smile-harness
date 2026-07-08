@@ -170,7 +170,7 @@
 - **涉及文件**：部署配置、`README.md` 部署架构节。
 - **验证步骤**：公网 URL 可访问 WebUI。
 - **依赖**：T15。
-- ✅ **完成**：commit `6a2393a`（PR #16 squash 合并 main）。docker-compose.yml + nginx.conf + deploy/README.md（Docker 部署 / 阿里云 ECS 部署 / systemd）+ 8 个部署验证测试。Dockerfile 复用 T16，Web 部署通过 docker-compose command 覆盖。
+- ✅ **完成**：commit `6a2393a`（PR #16 squash 合并 main）+ 阿里云实际部署。docker-compose.yml + nginx.conf + deploy/README.md（Docker 部署 / 阿里云 ECS 部署 / systemd）+ 8 个部署验证测试。Dockerfile 复用 T16，Web 部署通过 docker-compose command 覆盖。**公网验证**：http://101.37.170.172:8000/ HTTP 200 ✅（阿里云轻量服务器 2核2G Ubuntu 24.04）。
 
 ---
 

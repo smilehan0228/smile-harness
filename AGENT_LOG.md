@@ -169,3 +169,40 @@
   3. GitHub Actions 作为 `.gitlab-ci.yml` 的补充是务实选择——repo 在 GitHub 托管，GitLab CI 语法虽在但实际不会触发。
   4. T13 的 commit message 异常（"@" 而非规范格式），因 subagent 在 PR body 中使用了 `@` 字符导致 GitHub 截断。不影响功能，但需注意 PR body 避免首行特殊字符。
 - **下一步**：Band E 文档——T19 AGENT_LOG.md（本条）更新、T20 REFLECTION.md 撰写。
+
+---
+
+## 2026-07-09 — T18 云部署实测 + T19/T20 收尾
+
+- **时间**：2026-07-09
+- **task**：T18 实际部署 + T19/T20 文档收尾
+- **主 agent**：Claude Code（手动部署，非 subagent）
+
+### T18 阿里云实际部署
+
+- **服务器**：阿里云轻量应用服务器 2核2G，Ubuntu 24.04
+- **公网 IP**：`101.37.170.172`
+- **部署步骤**：
+  1. 安装 Docker 29.1.3 + docker compose v2
+  2. 配置 Docker 镜像加速器（`docker.m.daocloud.io`，因 Docker Hub 在国内被墙）
+  3. `git clone` → `docker compose up -d --build`
+  4. 开放阿里云防火墙 TCP 8000 端口
+- **验证**：`curl http://101.37.170.172:8000/` → HTTP 200，返回 smile-harness 聊天页
+- **容器状态**：`deploy-web-1` 运行中，`restart: unless-stopped`
+- **教训**：
+  1. 阿里云轻量服务器安全组默认不开放非标准端口，需手动添加防火墙规则
+  2. Docker Hub 在国内不可达，必须配置 registry-mirrors
+  3. T18 的"部署配置"和"实际部署"是两个阶段——PLAN 验收标准"公网 URL 可访问"需要实际部署才算完成
+
+### T19/T20 收尾
+
+- **T19 AGENT_LOG.md**：补全 T13–T18 及云部署实测记录
+- **T20 REFLECTION.md**：~2200 字五章反思（项目概述/工作流/架构/AI 辅助开发/总结）
+- **commit**：`72b4a26`、`0cc0f3f`
+
+### 项目最终状态
+
+- **全部 20 个 task 完成** ✅
+- **172/172 tests passed**，0 回归
+- **18 个 PR**，全部 squash merge
+- **公网 WebUI**：http://101.37.170.172:8000/ 可访问
