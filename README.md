@@ -132,7 +132,20 @@ minicc key clear deepseek_api_key
 ```bash
 minicc task "在项目根目录创建一个 hello.py"
 ```
+## Web 前端服务
 
+### 在线体验前端功能
+本项目已部署至云服务器，如果需要使用自己的API key，请参考上方的配置真实LLM并本地运行
+
+公网部署地址：**[http://101.37.170.172:8000/](http://101.37.170.172:8000/)**（未配置API key,使用mock llm代为展示前端功能）
+
+### 本地运行
+如果你不习惯CLI的模式，可以在本地环境运行前端
+```bash
+python -m uvicorn smile_harness.web.server:app --reload
+```
+
+然后打开 http://localhost:8000 来使用一个网页端聊天页面与agent交谈。
 ## 架构
 
 ```
