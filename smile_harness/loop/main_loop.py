@@ -103,6 +103,9 @@ class AgentLoop:
             # 2. call_llm → raw_response
             try:
                 raw_response = self._llm.complete(messages, self._build_tools())
+                # DEBUG: 打印 LLM 原始返回
+                import sys
+                print(f"\n[DEBUG iter {iteration}] LLM raw response:\n{raw_response[:500]}\n", file=sys.stderr)
             except StopIteration:
                 # LLM 脚本耗尽：检查反馈状态后退出
                 should_stop, reason = feedback_loop.should_stop()
