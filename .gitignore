@@ -60,3 +60,7 @@ service-account*.json
 # --- 日志 ---
 *.log
 logs/
+
+# --- Claude Code 会话数据（worktree/projects 不提交；settings.json 可提交）---
+.claude/worktrees/
+.claude/projects/
