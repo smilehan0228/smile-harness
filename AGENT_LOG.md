@@ -206,3 +206,68 @@
 - **172/172 tests passed**，0 回归
 - **18 个 PR**，全部 squash merge
 - **公网 WebUI**：http://101.37.170.172:8000/ 可访问
+
+---
+
+## 2026-07-09 — T21 真实 LLM 适配器（OpenAI 兼容 + DeepSeek 默认）
+
+- **时间**：2026-07-09
+- **task**：T21（Band D 之后的新 task）
+- **主 agent**：Claude Code（直接实现，非 subagent）
+
+### 背景
+
+全部 20 个 task 完成后，唯一缺失的是真实 LLM 接入。`minicc task` 一直用 MockLLM 硬编码脚本，`config.llm` 和 `CredentialManager` 的基础设施已就绪但未被使用。
+
+### 设计
+
+- **新增** `smile_harness/llm/openai_compatible.py` — `OpenAICompatibleLLM` 实现 `LLM` 抽象接口，用 httpx 调用任意 OpenAI 兼容 API，零新依赖
+- **修改** `smile_harness/cli/app.py` — `_run_task` 自动读取 `config.llm` + `CredentialManager.get(provider_api_key)`，有 key 走真实 LLM，无 key 回退 MockLLM
+- **新增** `tests/test_real_llm.py` — 11 个单测（mock HTTP，不发起网络请求）
+- **修改** `README.md` — 移除「仅 Mock LLM」，新增「配置真实 LLM」节
+
+### 调试过程（4 轮 fix）
+
+**第 1 轮：401 Authorization Required**
+
+- 现象：`minicc task "创建 hello.py"` → HTTP 401
+- 原因：API key 未配置或已过期
+- 解决：用户 `minicc key set deepseek_api_key` 重新设置有效 key
+
+**第 2 轮：SSL UNEXPECTED_EOF_WHILE_READING**
+
+- 现象：httpx 报 SSL 握手错误
+- 原因：临时网络波动（`curl.exe` 验证可直连 `api.deepseek.com`）
+- 解决：重试后恢复，实际是 httpx 偶发 SSL 问题
+
+**第 3 轮：400 Bad Request**
+
+- 现象：认证通过但 API 拒绝请求
+- 原因：`_build_tools()` 返回的 tools 格式是 `[{"name": "read_file", ...}]`，不符合 OpenAI function-calling 格式 `[{"type": "function", "function": {...}}]`，DeepSeek 拒绝
+- 解决：在 `openai_compatible.py` 中检查 tools 格式，非 OpenAI 格式则跳过发送（ReAct 协议不依赖 function calling）
+
+**第 4 轮：LLM 返回正确 JSON 但 agent 卡在重复 read_file**
+
+- 现象：LLM 返回 `{"thought": "...", "action": "write_file", ...}` 格式正确，第一轮成功创建文件，但第 2-5 轮都在重复 `read_file` hello.py，不知道文件已存在
+- 根因：`AgentLoop.run()` 中工具执行成功（`tool_result.ok=True`）时，结果**没有回灌**给 LLM。只有失败（`not ok`）或配置了 validator 时才记录 feedback。LLM 每轮都"失忆"
+- 解决：工具成功时也追加 `FeedbackResult(category=PASS, ...)` 到 `feedback_history`（但不计入 `feedback_loop.record()`，避免误触发早停）
+
+### 测试
+
+- 13 个单测（11 适配器 + 2 tools 格式校验）
+- 185/185 全绿，0 回归
+
+### 教训
+
+1. **OpenAI 兼容 ≠ 随便传**：API 对 tools 字段格式有严格要求，不符合即 400
+2. **工具结果必须回灌**：没有 feedback 的 agent 就是盲人——MockLLM 模式掩盖了这个问题，因为脚本是预写的"知道"要做什么；真实 LLM 每轮都从零开始
+3. **DEBUG 用 stderr 打印**：`print(..., file=sys.stderr)` 临时调试验证 LLM 返回内容，比加日志框架快
+4. **feedback_history vs feedback_loop 的职责分离**：工具结果回灌只进 history（给 LLM 上下文），不进 loop（控制停机），否则一次成功工具调用就触发 PASS 停止
+
+### 用户配置完整流程
+
+```bash
+minicc key set deepseek_api_key    # 存 API Key（隐藏输入）
+minicc config init                 # 生成 config.yaml
+minicc task "创建 hello.py"        # 有 key 走真实 LLM，无 key 回退 MockLLM
+```
