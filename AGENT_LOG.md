@@ -66,3 +66,21 @@
   1. 冷启动/探针环境的 `pip install -e .` 会留下 stale editable install 影子化正式仓库——须在切换到正式开发前卸载。
   2. gh `--delete-branch` 会尝试删本地分支，若 worktree 仍持有该分支会报错；须先 `git worktree remove` 再 `git branch -D`（顺序很重要）。
 - **下一步**：Band B 并行（T2/T3/T5/T8/T9/T10，6 个 subagent 并发 worktree）；T6 待 T5 完成后启动。
+
+---
+
+## 2026-07-08 — T2 工具四件套 + 分发（subagent-driven）
+
+- **时间**：2026-07-08
+- **task**：T2（Band B）
+- **技能**：`using-git-worktrees` + `subagent-driven-development` + `test-driven-development`
+- **subagent**：general-purpose，isolation=worktree，分支 `worktree-agent-a24d38bc3783a240f`
+- **产出**：`smile_harness/tools/base.py`（`ToolResult`）、`fs.py`（`read_file/write_file/edit_file/list_dir`）、`shell.py`（`run_shell` + 12 项黑名单）、`dispatcher.py`（`Dispatcher` 路由）、`tests/test_tools.py`（9 tests）
+- **TDD**：红（import error）→ 绿（13 passed, 4 existing + 9 new）
+- **subagent 关键输出**：commit `efc6756`；设计决策——`edit_file` 用 old_str/new_str 语义（恰好一次出现才替换，防歧义）；`write_file` HITL 检查在 fs 层（非 dispatcher）；shell 黑名单大小写不敏感；Dispatcher 用 dict 路由 + `**action.args` 解包传参。
+- **人工干预**：单阶段评审通过（代码干净，符合 SPEC）。GitHub 自动 squash merge PR #2→main `183b52f`；本地 `git reset --hard origin/main` 同步。
+- **commit hash**：`183b52f`（main，PR #2 squash）
+- **教训**：
+  1. `gh pr merge` 在 worktree 内执行会因 main 被主 worktree 占用而失败；改在主仓库 fetch+merge 更稳。
+  2. GitHub 在 PR 创建时可能自动合并（若 CI 已过），本地需 `reset --hard origin/main` 对齐。
+- **下一步**：Band B 剩余（T3/T5/T8/T9/T10 可并行，T6 待 T5 后）。

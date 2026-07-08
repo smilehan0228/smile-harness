@@ -41,6 +41,7 @@
 - **实现要点**：`ToolResult{ok,content,error}`；`read_file/write_file/edit_file/list_dir`；`run_shell` 危险子串黑名单；`Dispatcher.dispatch(action)`；**`write_file`/`edit_file` 执行前检查目标文件是否存在，已存在则转 HITL**（承接 M4 移交的"覆盖已存在文件"规则，guardrail 纯函数不判此）。
 - **验证步骤**：`test_read_nonexistent_returns_not_ok`；`test_write_then_read_roundtrip`；`test_edit_patch_applies`；`test_shell_blacklist_blocks_rm_rf`。
 - **依赖**：T1。
+- ✅ **完成**：commit `183b52f`（PR #2 squash 合并 main，已推）。subagent=T2，13/13 测试通过。设计决策：`edit_file` 用 old_str/new_str 参数（恰好出现一次才替换）；`write_file` 存在性检查内置于 fs 层（非 dispatcher）；shell 黑名单大小写不敏感 12 项。
 
 ### T3 三级护栏
 - **目标**：`guardrail(action, project_root) → GuardrailVerdict` 三级分类，**无状态纯函数**。
