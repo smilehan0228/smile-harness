@@ -16,6 +16,9 @@ dependencies = [
     "uvicorn",
 ]
 
+[project.scripts]
+minicc = "smile_harness.cli.app:main"
+
 [tool.setuptools.packages.find]
 include = ["smile_harness*"]
 
