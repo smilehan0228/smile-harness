@@ -1,4 +1,7 @@
-"""T15: 薄 Web 前端测试 — FastAPI TestClient 集成测试。"""
+"""T22: 薄 Web 前端测试 — FastAPI TestClient 集成测试。
+
+测试 SmileHarness 设计主题聊天页的 UI 元素和后端 API。
+"""
 
 from fastapi.testclient import TestClient
 from smile_harness.web.server import app
@@ -10,7 +13,7 @@ def test_index_returns_html():
     """GET / 返回 HTML 聊天页。"""
     response = client.get("/")
     assert response.status_code == 200
-    assert "smile-harness" in response.text
+    assert "SmileHarness" in response.text
     assert "text/html" in response.headers["content-type"]
 
 
@@ -59,5 +62,8 @@ def test_index_contains_chat_ui():
     response = client.get("/")
     html = response.text
     assert "messages" in html
-    assert "send()" in html
-    assert "Enter your coding task" in html
+    assert "sendMessage" in html
+    assert "sidebar" in html
+    assert "btnSend" in html
+    assert "chatInput" in html
+    assert "convList" in html
