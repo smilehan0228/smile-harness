@@ -199,16 +199,26 @@ class AgentLoop:
                             "final_message": f"HITL required: {verdict.reason}",
                         }
 
-            # 8. dispatch(action) → ToolResult
+            # 8. 规范化路径参数（LLM 常输出 /hello.py 表示"项目根目录下的 hello.py"）
+            if decision.action.name in ("write_file", "edit_file", "read_file", "list_dir"):
+                path = decision.action.args.get("path", "")
+                if isinstance(path, str) and path.startswith("/"):
+                    # 仅单层路径（如 /hello.py → hello.py）strip 前导 /
+                    # 多层路径（如 /tmp/xxx/mod.py）保留原样
+                    stripped = path[1:]
+                    if "/" not in stripped:
+                        decision.action.args["path"] = stripped
+
+            # 9. dispatch(action) → ToolResult
             tool_result = self._dispatcher.dispatch(decision.action)
 
-            # 9. 将工具结果喂回对话历史（关键：让 LLM 知道工具执行结果）
+            # 10. 将工具结果喂回对话历史（关键：让 LLM 知道工具执行结果）
             tool_feedback = f"Tool '{decision.action.name}' result: {tool_result.content or '(empty)'}"
             if not tool_result.ok:
                 tool_feedback = f"Tool '{decision.action.name}' ERROR: {tool_result.error}"
             messages.append({"role": "user", "content": tool_feedback})
 
-            # 10. if not ToolResult.ok: record failure & continue
+            # 11. if not ToolResult.ok: record failure & continue
             if not tool_result.ok:
                 fb = FeedbackResult(
                     category=Taxonomy.UNKNOWN,
