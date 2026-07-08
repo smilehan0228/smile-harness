@@ -51,14 +51,8 @@ smile-harness 默认使用 DeepSeek API，也支持任意 OpenAI 兼容供应商
 
 在 [DeepSeek 平台](https://platform.deepseek.com/) 注册并获取 API Key。
 
-### 2. 存储 API Key
 
-```bash
-minicc key set deepseek_api_key
-# 提示输入，粘贴 key 后回车（隐藏输入，不回显）
-```
-
-### 3. 生成配置文件
+### 2. 生成配置文件
 
 ```bash
 minicc config init
@@ -94,7 +88,7 @@ max_iters: 5
 
 
 #### 注意： 有 API key 时自动使用真实 LLM；无 key 时回退到 MockLLM 并提示警告。部署至云服务器的项目正是因为我没有配置API key，所以才使用mockllm的。
-### 配置凭据
+### 3.配置API key
 
 通过 keyring 安全存储 LLM API Key：
 
